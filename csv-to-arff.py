@@ -11,10 +11,6 @@ import pandas as pd
 import numbers
 import arff
 
-def list_only_int(lst):
-	return (all([isinstance(el, numbers.Number) for el in lst]) and
-		all([math.isnan(el) or float(el).is_integer() for el in lst]))
-
 input_file = sys.argv[1]
 output_file = sys.argv[2]
 
@@ -30,7 +26,9 @@ column_info = []
 integer_columns = []
 for column in dataset.columns:
 	column_values = dataset[column]
-	column_is_integer = list_only_int(column_values)
+	column_is_integer = (all([isinstance(el, numbers.Number) for el in column_values]) and
+			     all([math.isnan(el) or float(el).is_integer() for el in column_values]))
+
 	integer_columns.append(column_is_integer)
 
 	if column_is_integer:
@@ -40,18 +38,11 @@ for column in dataset.columns:
 		if is_categorical:
 			data_type_str = [str(int(val)) for val in unique_values]
 		else:
-			data_type_str = 'NUMERIC'
+			data_type_str = 'INTEGER'
 	else:
 		data_type_str = 'string' if all([isinstance(val, str) for val in column_values]) else 'NUMERIC'
 
 	column_info.append((column, data_type_str))
-
-
-formatted_data = [[str(int(val)) if integer_columns[column] and not math.isnan(val)
-				 else str(val)
-				 for (column, val) in enumerate(row)]
-				 for _, row in dataset.iterrows()]
-formatted_data = [row for _,row in dataset.iterrows()]
 
 arff_dict = {
 	'description':  'This ARFF is automatically generated.\n'
@@ -60,7 +51,7 @@ arff_dict = {
 			'an attribute truly is categorical or numerical.\n',
 	'relation': dataset_name,
 	'attributes': column_info,
-	'data': formatted_data
+	'data': [row for _, row in dataset.iterrows()]
 }
 
 with open('{}.arff'.format(dataset_name),'w') as arff_file:
