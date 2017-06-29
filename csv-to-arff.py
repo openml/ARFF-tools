@@ -30,7 +30,6 @@ for column in dataset.columns:
 			     all([math.isnan(el) or float(el).is_integer() for el in column_values]))
 
 	integer_columns.append(column_is_integer)
-
 	if column_is_integer:
 		not_nan_values = column_values[~numpy.isnan(column_values)]
 		unique_values = numpy.unique(not_nan_values)
@@ -44,6 +43,64 @@ for column in dataset.columns:
 
 	column_info.append((column, data_type_str))
 
+column_input = None
+while column_input != 's': 
+	column_input = None
+	print('The following attribute types are inferred for the dataset', dataset_name)
+	for i, (column, data_type) in enumerate(column_info):
+		print('[{:3d}] {}: {}'.format(i, column, data_type))
+		unique_values = set(dataset[column])
+		random_column_values = numpy.random.choice(list(unique_values), size= min(len(unique_values), 10))
+		print(min(len(unique_values), 10),'random unique column values (out of {}):'.format(len(unique_values)), random_column_values)
+
+	column_numbers = [str(i) for i in range(len(column_info))]
+	while column_input not in  [*column_numbers, 's']:
+		column_input = input('To change the attribute type of a column, first insert its number.\n'
+	      	      		   'To save the ARFF file, insert \'s\'\n')
+
+	if column_input in column_numbers:
+		datatype_input = None
+		non_category_input = ['i','integer','r','real','n','numeric','s','string']
+		category_input = ['c', 'categorical']
+		abort_input = ['a','abort']
+
+		while datatype_input not in [*non_category_input, *category_input,*abort_input]:
+			print('What datatype should column {} with name "{}" be?'.format(column_input, dataset.columns[int(column_input)]))
+			datatype_input = input('Valid options are (not case sensitive): [I]NTEGER, [R]EAL, [N]UMERIC, [S]TRING, [C]ATEGORICAL, [A]BORT\n')
+
+		if datatype_input.lower() in category_input:
+			column_name = dataset.columns[int(column_input)]
+			print(column_name)
+			column_values = dataset[column_name]
+			print(column_values)
+			unique_values = set(column_values)
+			print(unique_values)
+	
+			contains_nan = any([math.isnan(el) for el in unique_values if isinstance(el, float)])
+			contains_inf = any([math.isinf(el) for el in unique_values if isinstance(el, float)])
+			unique_values = [el for el in unique_values if not isinstance(el, float) or not math.isnan(el) or not math.isinf(el)]
+			if contains_nan or contains_inf:
+				if contains_nan:
+					print('Warning! This column contains NaN values.')
+					unique_values.append(float("nan"))
+				if contains_inf:
+					print('Warning! This column contains Inf values.')
+					unique_values.append(float("inf"))
+			
+			column_info[int(column_input)] = (column_info[int(column_input)][0], [str(val) for val in unique_values])
+			print('Column {} with name "{}" type changed to categorical with values {}.'.format(
+			       column_input, dataset.columns[int(column_input)],[str(val) for val in unique_values]))
+			
+		elif datatype_input.lower() not in abort_input:
+			if len(datatype_input) == 1:
+				datatype_input = [datatype for datatype in non_category_input
+						  if datatype.startswith(datatype_input) and len(datatype)>1][0]
+			column_info[int(column_input)] = (column_info[int(column_input)][0], datatype_input)
+			print('Column {} with name "{}" type changed to {}.'.format(column_input, dataset.columns[int(column_input)],datatype_input))
+		else:
+			print('Not assigning new datatype to column.')
+
+print('Saving ARFF to file...')
 arff_dict = {
 	'description':  'This ARFF is automatically generated.\n'
 			'The data types of attributes are inferred from the data.\n'
