@@ -9,6 +9,7 @@ import math
 import numpy
 import pandas as pd
 import numbers
+import arff
 
 def list_only_int(lst):
 	return (all([isinstance(el, numbers.Number) for el in lst]) and
@@ -37,7 +38,7 @@ for column in dataset.columns:
 		unique_values = numpy.unique(not_nan_values)
 		is_categorical = (len(unique_values) <= 10 and column_is_integer)
 		if is_categorical:
-			data_type_str = '{{{}}}'.format(','.join([str(int(val)) for val in unique_values]))
+			data_type_str = [str(int(val)) for val in unique_values]
 		else:
 			data_type_str = 'NUMERIC'
 	else:
@@ -45,22 +46,22 @@ for column in dataset.columns:
 
 	column_info.append((column, data_type_str))
 
-with open('{}.arff'.format(dataset_name), 'w') as arff_file:
-	arff_file.write('% This ARFF is automatically generated.\n'
-			'% The data types of attributes are inferred from the data.\n'
-			'% In particular this means there is some uncertainty as to whether '
-			'an attribute truly is categorical or numerical.\n'
-			'\n'
-			'@RELATION {}\n'.format(dataset_name))
-	for (name, data_type) in column_info:
-		arff_file.write('@ATTRIBUTE {} {}\n'.format(name.replace(' ', '_'), data_type))
 
-	arff_file.write('@DATA\n')
-	for row in dataset.as_matrix():
-		row_values = [str(int(val)) if integer_columns[column] and 
-					       not math.isnan(val)
-				            else str(val)
-				            for (column, val) in enumerate(row)]
+formatted_data = [[str(int(val)) if integer_columns[column] and not math.isnan(val)
+				 else str(val)
+				 for (column, val) in enumerate(row)]
+				 for _, row in dataset.iterrows()]
+formatted_data = [row for _,row in dataset.iterrows()]
 
-		row_str = ','.join(row_values)
-		arff_file.write(row_str+'\n')
+arff_dict = {
+	'description':  'This ARFF is automatically generated.\n'
+			'The data types of attributes are inferred from the data.\n'
+		        'In particular this means there is some uncertainty as to whether '
+			'an attribute truly is categorical or numerical.\n',
+	'relation': dataset_name,
+	'attributes': column_info,
+	'data': formatted_data
+}
+
+with open('{}.arff'.format(dataset_name),'w') as arff_file:
+	arff.dump(arff_dict, arff_file)
