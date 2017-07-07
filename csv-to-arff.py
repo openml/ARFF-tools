@@ -11,8 +11,14 @@ import pandas as pd
 import numbers
 import arff
 
+NUM_UNIQUE_CATEGORICAL = 10
+
 input_file = sys.argv[1]
 output_file = sys.argv[2]
+sep = ','
+
+if len(sys.argv)>3:
+	sep = sys.argv[3]
 
 if '/' in input_file:
 	end_of_folder_path = input_file.rfind('/') + 1
@@ -20,7 +26,7 @@ else:
 	end_of_folder_path = 0
 
 dataset_name = input_file[end_of_folder_path:-4]
-dataset = pd.read_csv(input_file, sep='\t')
+dataset = pd.read_csv(input_file, sep=sep)
 
 column_info = []
 integer_columns = []
@@ -33,20 +39,31 @@ for column in dataset.columns:
 	if column_is_integer:
 		not_nan_values = column_values[~numpy.isnan(column_values)]
 		unique_values = numpy.unique(not_nan_values)
-		is_categorical = (len(unique_values) <= 10 and column_is_integer)
+		is_categorical = (len(unique_values) <= NUM_UNIQUE_CATEGORICAL and column_is_integer)
 		if is_categorical:
 			data_type_str = [str(int(val)) for val in unique_values]
 		else:
 			data_type_str = 'INTEGER'
+	elif all([isinstance(val, str) for val in column_values]):
+		if len(set(column_values)) <= NUM_UNIQUE_CATEGORICAL:
+			data_type_str = list(set(column_values))
+		else:
+			data_type_str = 'STRING'
 	else:
-		data_type_str = 'string' if all([isinstance(val, str) for val in column_values]) else 'NUMERIC'
+		data_type_str = 'NUMERIC'
 
 	column_info.append((column, data_type_str))
+
+print('Datatypes have been inferred by the values found in the CSV-file.')
+col_types = [col_type if not isinstance(col_type,list) else 'CATEGORICAL' for _,col_type in column_info]
+col_type_count = numpy.unique(col_types, return_counts=True) 
+print('In total we found',', '.join([str(count)+' '+col_type for (col_type, count) in zip(*col_type_count)]))
 
 column_input = None
 while column_input != 's': 
 	column_input = None
-	print('The following attribute types are inferred for the dataset', dataset_name)
+	print('The following attribute types are inferred for the dataset \'{}\':\n'.format(dataset_name))
+
 	for i, (column, data_type) in enumerate(column_info):
 		print('[{:3d}] {}: {}'.format(i, column, data_type))
 		unique_values = set(dataset[column])
@@ -55,7 +72,7 @@ while column_input != 's':
 
 	column_numbers = [str(i) for i in range(len(column_info))]
 	while column_input not in  [*column_numbers, 's']:
-		column_input = input('To change the attribute type of a column, first insert its number.\n'
+		column_input = input('\n To change the attribute type of a column, first insert its number.\n'
 	      	      		   'To save the ARFF file, insert \'s\'\n')
 
 	if column_input in column_numbers:
@@ -65,16 +82,13 @@ while column_input != 's':
 		abort_input = ['a','abort']
 
 		while datatype_input not in [*non_category_input, *category_input,*abort_input]:
-			print('What datatype should column {} with name "{}" be?'.format(column_input, dataset.columns[int(column_input)]))
+			print('\n What datatype should column {} with name "{}" be?'.format(column_input, dataset.columns[int(column_input)]))
 			datatype_input = input('Valid options are (not case sensitive): [I]NTEGER, [R]EAL, [N]UMERIC, [S]TRING, [C]ATEGORICAL, [A]BORT\n')
 
 		if datatype_input.lower() in category_input:
 			column_name = dataset.columns[int(column_input)]
-			print(column_name)
 			column_values = dataset[column_name]
-			print(column_values)
 			unique_values = set(column_values)
-			print(unique_values)
 	
 			contains_nan = any([math.isnan(el) for el in unique_values if isinstance(el, float)])
 			contains_inf = any([math.isinf(el) for el in unique_values if isinstance(el, float)])
